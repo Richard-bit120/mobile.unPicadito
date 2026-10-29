@@ -1,5 +1,5 @@
 import { THEME } from '@/config/theme';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { Calendar, Clock } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -47,11 +47,9 @@ export const DateTimeField: React.FC<DateTimeFieldProps> = ({
 }) => {
     const [show, setShow] = useState(false);
 
-    const handleChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    const handleValueChange = (_event: DateTimePickerChangeEvent, selectedDate: Date) => {
         setShow(Platform.OS === 'ios');
-        if (selectedDate) {
-            onChange(formatDateToString(selectedDate, mode));
-        }
+        onChange(formatDateToString(selectedDate, mode));
     };
 
     return (
@@ -83,7 +81,9 @@ export const DateTimeField: React.FC<DateTimeFieldProps> = ({
                     mode={mode}
                     is24Hour={true}
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleChange}
+                    onValueChange={handleValueChange}
+                    onDismiss={() => setShow(false)}
+                    onNeutralButtonPress={() => setShow(false)}
                 />
             )}
         </View>
