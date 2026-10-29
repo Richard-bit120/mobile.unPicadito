@@ -12,11 +12,18 @@ import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { TacticalBoard } from '@/features/matches/components/TacticalBoard';
 import { matchService } from '@/features/matches/services/matchService';
 import { MappedParticipant, MappedRoom } from '@/features/matches/types/match.types';
-import { isWithin24Hours } from '@/features/matches/utils/dateUtils';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { getFinalizeAvailableAt, isWithin24Hours } from '@/features/matches/utils/dateUtils';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, Crown, UserMinus } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef useState } from 'react';
+import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const STATUS_BADGE: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' }> = {
+    ABIERTA: { label: 'Disponible', variant: 'success' },
+    COMPLETA: { label: 'Completa', variant: 'warning' },
+    FINALIZADA: { label: 'Finalizada', variant: 'neutral' },
+    CANCELADA: { label: 'Cancelada', variant: 'danger' },
+};
 
 export default function RoomDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +36,65 @@ export default function RoomDetailScreen() {
     const [error, setError] = useState<string | null>(null);
     const [showCancelBox, setShowCancelBox] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
+    const [now, setNow] = useState(Date.now());
+    const isFirstFocus = useRef(true);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (isFirstFocus.current) {
+                isFirstFocus.current = false;
+                return;
+            }
+            loadRoom();
+        }, [loadRoom])
+    );
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') loadRoom();
+        });
+        return () => subscription.remove();
+    }, [loadRoom]);
+
+    const roomStatus = room?.status;
+    const matchIso = room?.raw?.fechaHoraPartido;
+    useEffect(() => {
+        if (!matchIso || !['ABIERTA', 'COMPLETA'].includes(roomStatus ?? '')) return;
+        const availableAt = getFinalizeAvailableAt(matchIso);
+        if (!availableAt || !id) return;
+
+        const MAX_TIMEOUT_MS = 2147483647;
+        const MAX_ATTEMPTS = 5;
+        const RETRY_MS = 30000;
+        const delay = Math.max(availableAt.getTime() - Date.now(), 0);
+        if (delay > MAX_TIMEOUT_MS) return;
+
+        let cancelled = false;
+        let attempts = 0;
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const refresh = async () => {
+            setNow(Date.now());
+            try {
+                const fresh = await matchService.getRoomById(id);
+                if (cancelled) return;
+                setRoom(fresh);
+                const stillOpen = ['ABIERTA', 'COMPLETA'].includes(fresh?.status ?? '');
+                if (stillOpen && attempts < MAX_ATTEMPTS) {
+                    attempts += 1;
+                    timeoutId = setTimeout(refresh, RETRY_MS);
+                }
+            } catch {
+            }
+        };
+
+        timeoutId = setTimeout(refresh, delay);
+        return () => {
+            cancelled = true;
+            clearTimeout(timeoutId);
+        };
+    }, [id, matchIso, roomStatus]);
+
 
     const loadRoom = useCallback(async () => {
         if (!id) return;
@@ -61,15 +127,23 @@ export default function RoomDetailScreen() {
     const isParticipant = room.participants.some(
         (p) => p.userId === user?.id && (p.status === 'CONFIRMED' || p.status === 'SUBSTITUTE')
     );
-    const lockedByTime = isWithin24Hours(room.raw?.fechaHoraPartido);
+    const matchIso = room?.raw?.fechaHoraPartido;
+    const finalizedAt = matchIso && !['ABIERTA', 'COMPLETA'].includes(roomStatus ?? '') ? new Date(matchIso).getTime() + 30 * 60 * 1000 : null;
+    const lockedByTime = finalizedAt && finalizedAt > Date.now();
+
     const confirmedList = room.participants.filter((p) => p.status === 'CONFIRMED');
     const substituteList = room.participants.filter((p) => p.status === 'SUBSTITUTE');
     const pendingList = room.participants.filter((p) => p.status === 'PENDING');
     const availableSlots = Math.max(0, room.maxPlayers - confirmedList.length);
-    const progressPct =
-        room.maxPlayers > 0
-            ? Math.min(100, Math.round((confirmedList.length / room.maxPlayers) * 100))
-            : 0;
+    const progressPct = room.maxPlayers > 0 ? Math.min(100, Math.round((confirmedList.length / room.maxPlayers) * 100)) : 0;
+    const finalizeAvailableAt = getFinalizeAvailableAt(room.raw?.fechaHoraPartido);
+    const isOpenForFinalize = room.status === 'ABIERTA' || room.status === 'COMPLETA';
+    const isClosedRoom = room.status === 'CANCELADA' || room.status === 'FINALIZADA';
+    const canFinalizeNow =
+        finalizeAvailableAt !== null && now >= finalizeAvailableAt.getTime();
+    const finalizeAvailableLabel = finalizeAvailableAt
+        ? finalizeAvailableAt.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+        : '';
 
     const handleJoin = async () => {
         setActionLoading(true);
@@ -180,12 +254,43 @@ export default function RoomDetailScreen() {
         }
     };
 
+    const handleFinalizeRoom = () => {
+        Alert.alert(
+            '¿Finalizar partido?',
+            'La sala pasará a estado FINALIZADA y se habilitarán las calificaciones. Esta acción no se puede deshacer.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Finalizar',
+                    onPress: async () => {
+                        setActionLoading(true);
+                        setError(null);
+                        try {
+                            await matchService.finalizeRoom(room.id);
+                            await loadRoom();
+                        } catch (err: any) {
+                            setError(err.message);
+                        } finally {
+                            setActionLoading(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     return (
         <ScreenContainer>
             <ErrorMessage message={error} />
 
             {/* Información y Mapa de la cancha */}
             <SectionCard
+                action={
+                    <Badge
+                        label={STATUS_BADGE[room.status]?.label ?? room.status}
+                        variant={STATUS_BADGE[room.status]?.variant ?? 'neutral'}
+                    />
+                }
                 title={room.title}
                 subtitle={`${room.date} a las ${room.time} hs`}
                 action={
@@ -244,7 +349,7 @@ export default function RoomDetailScreen() {
             </SectionCard>
 
             {/* Solicitudes pendientes (Salas privadas) */}
-            {isOrganizer && pendingList.length > 0 && (
+            {isOrganizer && !isClosedRoom && pendingList.length > 0 && (
                 <SectionCard
                     title="Solicitudes de Ingreso"
                     action={
@@ -292,7 +397,7 @@ export default function RoomDetailScreen() {
 
                         <View style={styles.rowActions}>
                             {p.isOrganizer && <Badge label="Organizador" variant="info" />}
-                            {isOrganizer && p.userId !== user?.id && (
+                            {isOrganizer && !isClosedRoom && p.userId !== user?.id && (
                                 <>
                                     <TouchableOpacity
                                         style={styles.iconActionBtn}
@@ -331,7 +436,7 @@ export default function RoomDetailScreen() {
                                         {p.firstName} {p.lastName} (@{p.username})
                                     </Text>
                                 </TouchableOpacity>
-                                {isOrganizer && p.userId !== user?.id && (
+                                {isOrganizer && !isClosedRoom && p.userId !== user?.id && (
                                     <View style={styles.rowActions}>
                                         <TouchableOpacity
                                             style={styles.iconActionBtn}
@@ -355,9 +460,25 @@ export default function RoomDetailScreen() {
                         onPress={handleJoin}
                         loading={actionLoading}
                     />
+                     {isOrganizer && isOpenForFinalize && (
+                    <>
+                        <Button
+                            title="Finalizar Partido"
+                            disabled={!canFinalizeNow}
+                            loading={actionLoading}
+                            onPress={handleFinalizeRoom}
+                            style={{ marginBottom: THEME.spacing.sm }}
+                        />
+                        {!canFinalizeNow && !!finalizeAvailableLabel && (
+                            <Text style={[styles.muted, { marginBottom: THEME.spacing.sm }]}>
+                                Se habilita el {finalizeAvailableLabel} hs (30 minutos después del inicio).
+                            </Text>
+                        )}
+                    </>
+                )}
                 )}
 
-                {isParticipant && !isOrganizer && (
+                {isParticipant && !isOrganizer && !isClosedRoom && (
                     <Button
                         title={lockedByTime ? 'Bloqueado (< 24hs)' : 'Salir del Partido'}
                         variant="danger"
@@ -366,7 +487,22 @@ export default function RoomDetailScreen() {
                         onPress={handleLeave}
                     />
                 )}
-
+                {isOrganizer && isOpenForFinalize && (
+                    <>
+                        <Button
+                            title="Finalizar Partido"
+                            disabled={!canFinalizeNow}
+                            loading={actionLoading}
+                            onPress={handleFinalizeRoom}
+                            style={{ marginBottom: THEME.spacing.sm }}
+                        />
+                        {!canFinalizeNow && !!finalizeAvailableLabel && (
+                            <Text style={[styles.muted, { marginBottom: THEME.spacing.sm }]}>
+                                Se habilita el {finalizeAvailableLabel} hs (30 minutos después del inicio).
+                            </Text>
+                        )}
+                    </>
+                )}
                 {isOrganizer && room.status === 'ABIERTA' && (
                     <>
                         <Button

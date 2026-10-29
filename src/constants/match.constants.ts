@@ -28,6 +28,10 @@ export const CANCEL_ROOM_RULES = {
     LOCK_WINDOW_HOURS: 24,
 } as const;
 
+export const FINALIZE_ROOM_RULES = {
+    MINUTES_AFTER_START: 30,
+} as const
+
 export const INITIAL_ROOM_FORM_VALUES = {
     nombre: '',
     nombreCancha: '',
