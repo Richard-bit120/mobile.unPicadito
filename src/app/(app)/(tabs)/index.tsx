@@ -3,9 +3,11 @@ import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { THEME } from '@/config/theme';
+import { LocationFilterBar } from '@/features/matches/components/LocationFilterBar';
 import { MatchCard } from '@/features/matches/components/MatchCard';
 import { MatchFilterModal } from '@/features/matches/components/MatchFilterModal';
 import { useMatches } from '@/features/matches/hooks/useMatches';
+import { useUserLocation } from '@/features/matches/hooks/useUserLocation';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRouter } from 'expo-router';
 import { SlidersHorizontal } from 'lucide-react-native';
@@ -32,6 +34,8 @@ export default function FeedScreen() {
         refresh,
     } = useMatches();
 
+    const { location, isLoadingGps, solicitarGps, seleccionarLocalidad } = useUserLocation();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const debouncedSearch = useDebounce(searchTerm, 400);
@@ -40,8 +44,19 @@ export default function FeedScreen() {
         setFilter('search', debouncedSearch);
     }, [debouncedSearch, setFilter]);
 
+    useEffect(() => {
+        if (location.lat !== undefined && location.lng !== undefined) {
+            setFilter('lat', location.lat);
+            setFilter('lng', location.lng);
+            if (!filters.radioKm) {
+                setFilter('radioKm', 20);
+            }
+        }
+    }, [location.lat, location.lng, setFilter]);
+
     const activeFilterCount = useMemo(() => {
         let count = 0;
+        if (filters.lat !== undefined && filters.lng !== undefined) count++;
         if (filters.nombreCancha) count++;
         if (filters.esPublica !== '' && filters.esPublica !== undefined) count++;
         if (filters.permiteSuplentes !== '' && filters.permiteSuplentes !== undefined) count++;
@@ -53,35 +68,46 @@ export default function FeedScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.searchHeader}>
-                <SearchInput
-                    value={searchTerm}
-                    onChangeText={setSearchTerm}
-                    onClear={() => setFilter('search', '')}
-                    placeholder="Buscar partidos..."
-                    style={styles.searchInput}
-                />
-                <TouchableOpacity
-                    style={[
-                        styles.filterBtn,
-                        activeFilterCount > 0 && styles.filterBtnActive,
-                    ]}
-                    onPress={() => setFilterModalVisible(true)}
-                >
-                    <SlidersHorizontal
-                        size={20}
-                        color={activeFilterCount > 0 ? '#fff' : THEME.colors.text}
+            <View style={styles.headerArea}>
+                <View style={styles.searchHeader}>
+                    <SearchInput
+                        value={searchTerm}
+                        onChangeText={setSearchTerm}
+                        onClear={() => setFilter('search', '')}
+                        placeholder="Buscar partidos o canchas..."
+                        style={styles.searchInput}
                     />
-                    {activeFilterCount > 0 && (
-                        <View style={styles.filterBadge}>
-                            <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.filterBtn,
+                            activeFilterCount > 0 && styles.filterBtnActive,
+                        ]}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <SlidersHorizontal
+                            size={20}
+                            color={activeFilterCount > 0 ? '#fff' : THEME.colors.text}
+                        />
+                        {activeFilterCount > 0 && (
+                            <View style={styles.filterBadge}>
+                                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                <LocationFilterBar
+                    tipoUbicacion={location.tipo}
+                    nombreUbicacion={location.nombre}
+                    onGpsClick={() => solicitarGps()}
+                    onLocalidadClick={(loc) => seleccionarLocalidad(loc)}
+                    isLoadingGps={isLoadingGps}
+                    label="Partidos cerca de:"
+                />
             </View>
 
             {loading && !refreshing ? (
-                <LoadingSpinner label="Buscando partidos..." />
+                <LoadingSpinner label="Buscando partidos cercanos..." />
             ) : (
                 <FlatList
                     data={matches}
@@ -105,16 +131,9 @@ export default function FeedScreen() {
                     ListEmptyComponent={
                         <EmptyState
                             title="No se encontraron partidos"
-                            description="Prueba cambiando los filtros o crea una nueva sala."
+                            description="Prueba cambiando la ubicación o el radio de distancia."
                             actionLabel={activeFilterCount > 0 ? 'Limpiar Filtros' : undefined}
-                            onActionPress={
-                                activeFilterCount > 0
-                                    ? () => {
-                                          setSearchTerm('');
-                                          resetFilters();
-                                      }
-                                    : undefined
-                            }
+                            onActionPress={resetFilters}
                         />
                     }
                 />
@@ -124,10 +143,7 @@ export default function FeedScreen() {
                 visible={filterModalVisible}
                 filters={filters}
                 onFilterChange={setFilter}
-                onReset={() => {
-                    setSearchTerm('');
-                    resetFilters();
-                }}
+                onReset={resetFilters}
                 onClose={() => setFilterModalVisible(false)}
             />
         </View>
@@ -139,26 +155,29 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: THEME.colors.background,
     },
+    headerArea: {
+        paddingHorizontal: THEME.spacing.md,
+        paddingTop: THEME.spacing.sm,
+    },
     searchHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: THEME.spacing.md,
-        paddingTop: THEME.spacing.sm,
-        paddingBottom: THEME.spacing.xs,
         gap: THEME.spacing.sm,
+        marginBottom: THEME.spacing.xs,
     },
     searchInput: {
         flex: 1,
     },
     filterBtn: {
-        width: 46,
-        height: 46,
+        width: 48,
+        height: 48,
         backgroundColor: THEME.colors.surface,
+        borderRadius: THEME.borderRadius.md,
         borderWidth: 1,
         borderColor: THEME.colors.surfaceBorder,
-        borderRadius: THEME.borderRadius.md,
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'relative',
     },
     filterBtnActive: {
         backgroundColor: THEME.colors.primary,
@@ -168,21 +187,20 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: -4,
         right: -4,
-        backgroundColor: THEME.colors.warning,
-        borderRadius: 10,
-        minWidth: 18,
+        backgroundColor: THEME.colors.danger,
+        borderRadius: THEME.borderRadius.full,
+        width: 18,
         height: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 4,
     },
     filterBadgeText: {
-        color: '#000',
+        color: '#fff',
         fontSize: 10,
-        fontWeight: '800',
+        fontWeight: '700',
     },
     listContent: {
-        padding: THEME.spacing.md,
-        flexGrow: 1,
+        paddingHorizontal: THEME.spacing.md,
+        paddingBottom: THEME.spacing.xl,
     },
 });

@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/Badge';
 import { THEME } from '@/config/theme';
 import { Calendar, Lock, MapPin, Users } from 'lucide-react-native';
 import React from 'react';
@@ -23,6 +24,20 @@ export const MatchCard: React.FC<MatchCardProps> = ({ room, onPress }) => {
     const totales = Number(room.cuposTotales ?? 10);
     const isFull = ocupados >= totales;
 
+    const venueName = room.cancha?.predio?.nombre || '';
+    const pitchName = room.cancha?.nombre || room.nombreCancha || '';
+    const venueAddress = room.cancha?.predio?.direccion || room.direccion || '';
+
+    let locationText = '';
+    if (venueName && pitchName) {
+        locationText = `${venueName} (${pitchName})`;
+    } else {
+        locationText = venueName || pitchName || 'Cancha a confirmar';
+    }
+    if (venueAddress) {
+        locationText += ` • ${venueAddress}`;
+    }
+
     return (
         <Pressable
             onPress={onPress}
@@ -32,15 +47,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({ room, onPress }) => {
                 <Text style={styles.title} numberOfLines={1}>
                     {room.nombre}
                 </Text>
-                <View style={[styles.badge, isFull ? styles.badgeFull : styles.badgeOpen]}>
-                    <Text style={styles.badgeText}>{isFull ? 'Completa' : 'Abierta'}</Text>
+                <View style={styles.headerRight}>
+                    {room.distanciaKm !== undefined && (
+                        <Badge
+                            label={`${room.distanciaKm} km`}
+                            variant="info"
+                            style={styles.distBadge}
+                        />
+                    )}
+                    <View style={[styles.badge, isFull ? styles.badgeFull : styles.badgeOpen]}>
+                        <Text style={styles.badgeText}>{isFull ? 'Completa' : 'Abierta'}</Text>
+                    </View>
                 </View>
             </View>
 
             <View style={styles.row}>
                 <MapPin size={16} color={THEME.colors.textSecondary} />
                 <Text style={styles.subtext} numberOfLines={1}>
-                    {room.nombreCancha} {room.direccion ? `• ${room.direccion}` : ''}
+                    {locationText}
                 </Text>
             </View>
 
@@ -69,75 +93,83 @@ export const MatchCard: React.FC<MatchCardProps> = ({ room, onPress }) => {
 const styles = StyleSheet.create({
     card: {
         backgroundColor: THEME.colors.surface,
-        borderRadius: THEME.borderRadius.md,
+        borderRadius: THEME.borderRadius.lg,
+        padding: THEME.spacing.md,
+        marginBottom: THEME.spacing.sm,
         borderWidth: 1,
         borderColor: THEME.colors.surfaceBorder,
-        padding: THEME.spacing.md,
-        marginBottom: THEME.spacing.md,
     },
     cardPressed: {
         opacity: 0.85,
-        transform: [{ scale: 0.99 }],
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: THEME.spacing.xs,
+        marginBottom: 8,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    distBadge: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
     },
     title: {
-        fontSize: 18,
-        fontWeight: '700',
         color: THEME.colors.text,
+        fontSize: 16,
+        fontWeight: '700',
         flex: 1,
-        marginRight: THEME.spacing.sm,
+        marginRight: 8,
     },
     badge: {
         paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: THEME.borderRadius.sm,
+        paddingVertical: 4,
+        borderRadius: THEME.borderRadius.full,
     },
     badgeOpen: {
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
     },
     badgeFull: {
-        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+        backgroundColor: 'rgba(239, 68, 68, 0.15)',
     },
     badgeText: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '600',
-        color: THEME.colors.primaryLight,
+        color: THEME.colors.text,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: THEME.spacing.sm,
+        gap: 6,
+        marginBottom: 12,
     },
     subtext: {
-        fontSize: 14,
         color: THEME.colors.textSecondary,
-        marginLeft: 6,
+        fontSize: 13,
         flex: 1,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: THEME.spacing.sm,
         borderTopWidth: 1,
         borderTopColor: THEME.colors.surfaceBorder,
+        paddingTop: 10,
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
     metaGroup: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    metaItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
     metaText: {
-        fontSize: 13,
         color: THEME.colors.textSecondary,
-        marginLeft: 6,
+        fontSize: 13,
     },
 });

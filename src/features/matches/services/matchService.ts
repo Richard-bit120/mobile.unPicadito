@@ -20,6 +20,9 @@ export const matchService = {
         if (filters.permiteSuplentes !== '' && filters.permiteSuplentes !== undefined) {
             params.permiteSuplentes = filters.permiteSuplentes;
         }
+        if (filters.lat !== undefined) params.lat = filters.lat;
+        if (filters.lng !== undefined) params.lng = filters.lng;
+        if (filters.radioKm !== undefined) params.radioKm = filters.radioKm;
 
         const response = await axiosInstance.get('/salas/buscar', { params });
         return response.data?.data ?? [];
@@ -59,7 +62,6 @@ export const matchService = {
         });
         return response.data;
     },
-
 
     finalizeRoom: async (id: string) => {
         const response = await axiosInstance.patch(`/salas/${id}/finalizar`);

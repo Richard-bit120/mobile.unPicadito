@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 const getLocalHost = (): string => {
     if (Platform.OS === 'android') {
-        return 'http://10.0.2.2:8080/api';
+        return 'http://192.168.1.16:8080/api';
     }
     return 'http://localhost:8080/api';
 };

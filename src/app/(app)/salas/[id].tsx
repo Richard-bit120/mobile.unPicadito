@@ -1,4 +1,4 @@
-import { ErrorMessage } from '@/components/feedback/ErrorMessage';
+﻿import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Badge } from '@/components/ui/Badge';
@@ -15,7 +15,7 @@ import { MappedParticipant, MappedRoom } from '@/features/matches/types/match.ty
 import { getFinalizeAvailableAt, isWithin24Hours } from '@/features/matches/utils/dateUtils';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, Crown, UserMinus } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const STATUS_BADGE: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' }> = {
@@ -38,6 +38,19 @@ export default function RoomDetailScreen() {
     const [cancelReason, setCancelReason] = useState('');
     const [now, setNow] = useState(Date.now());
     const isFirstFocus = useRef(true);
+
+    const loadRoom = useCallback(async () => {
+        if (!id) return;
+        setError(null);
+        try {
+            const data = await matchService.getRoomById(id);
+            setRoom(data);
+        } catch (err: any) {
+            setError(err.message || 'No se pudo cargar la sala.');
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
 
     useFocusEffect(
         useCallback(() => {
@@ -96,18 +109,7 @@ export default function RoomDetailScreen() {
     }, [id, matchIso, roomStatus]);
 
 
-    const loadRoom = useCallback(async () => {
-        if (!id) return;
-        setError(null);
-        try {
-            const data = await matchService.getRoomById(id);
-            setRoom(data);
-        } catch (err: any) {
-            setError(err.message || 'No se pudo cargar la sala.');
-        } finally {
-            setLoading(false);
-        }
-    }, [id]);
+
 
     useEffect(() => {
         loadRoom();
@@ -127,9 +129,8 @@ export default function RoomDetailScreen() {
     const isParticipant = room.participants.some(
         (p) => p.userId === user?.id && (p.status === 'CONFIRMED' || p.status === 'SUBSTITUTE')
     );
-    const matchIso = room?.raw?.fechaHoraPartido;
     const finalizedAt = matchIso && !['ABIERTA', 'COMPLETA'].includes(roomStatus ?? '') ? new Date(matchIso).getTime() + 30 * 60 * 1000 : null;
-    const lockedByTime = finalizedAt && finalizedAt > Date.now();
+    const lockedByTime = Boolean(isWithin24Hours(room?.raw?.fechaHoraPartido));
 
     const confirmedList = room.participants.filter((p) => p.status === 'CONFIRMED');
     const substituteList = room.participants.filter((p) => p.status === 'SUBSTITUTE');
@@ -159,7 +160,7 @@ export default function RoomDetailScreen() {
     };
 
     const handleLeave = () => {
-        Alert.alert('Salir de la sala', '¿Estás seguro de que quieres darte de baja?', [
+        Alert.alert('Salir de la sala', 'Â¿EstÃ¡s seguro de que quieres darte de baja?', [
             { text: 'Cancelar', style: 'cancel' },
             {
                 text: 'Salir',
@@ -180,7 +181,7 @@ export default function RoomDetailScreen() {
 
     const handleExpelPlayer = (player: MappedParticipant) => {
         const name = player.firstName || player.username || 'este jugador';
-        Alert.alert('¿Expulsar jugador?', `¿Deseas expulsar a ${name} de la sala?`, [
+        Alert.alert('Â¿Expulsar jugador?', `Â¿Deseas expulsar a ${name} de la sala?`, [
             { text: 'Cancelar', style: 'cancel' },
             {
                 text: 'Expulsar',
@@ -203,8 +204,8 @@ export default function RoomDetailScreen() {
     const handleTransferOrganizer = (player: MappedParticipant) => {
         const name = player.firstName || player.username || 'este jugador';
         Alert.alert(
-            '¿Transferir organización?',
-            `¿Deseas transferir la organización a ${name}? Dejarás de ser el organizador de este partido.`,
+            'Â¿Transferir organizaciÃ³n?',
+            `Â¿Deseas transferir la organizaciÃ³n a ${name}? DejarÃ¡s de ser el organizador de este partido.`,
             [
                 { text: 'Cancelar', style: 'cancel' },
                 {
@@ -256,8 +257,8 @@ export default function RoomDetailScreen() {
 
     const handleFinalizeRoom = () => {
         Alert.alert(
-            '¿Finalizar partido?',
-            'La sala pasará a estado FINALIZADA y se habilitarán las calificaciones. Esta acción no se puede deshacer.',
+            'Â¿Finalizar partido?',
+            'La sala pasarÃ¡ a estado FINALIZADA y se habilitarÃ¡n las calificaciones. Esta acciÃ³n no se puede deshacer.',
             [
                 { text: 'Cancelar', style: 'cancel' },
                 {
@@ -283,7 +284,7 @@ export default function RoomDetailScreen() {
         <ScreenContainer>
             <ErrorMessage message={error} />
 
-            {/* Información y Mapa de la cancha */}
+            {/* InformaciÃ³n y Mapa de la cancha */}
             <SectionCard
                 action={
                     <Badge
@@ -293,16 +294,13 @@ export default function RoomDetailScreen() {
                 }
                 title={room.title}
                 subtitle={`${room.date} a las ${room.time} hs`}
-                action={
-                    <Badge
-                        label={room.status}
-                        variant={room.status === 'ABIERTA' ? 'success' : 'warning'}
-                    />
-                }
-            >
+>
                 <Text style={styles.infoLine}>
-                    🏟️ Cancha: {room.raw?.nombreCancha || room.location}
+                    🏟️ Cancha: {room.pitchName || room.raw?.nombreCancha || room.location}
                 </Text>
+                {!!room.venueName && (
+                    <Text style={styles.infoLine}>🏢 Complejo: {room.venueName}</Text>
+                )}
                 {!!room.raw?.direccion && (
                     <Text style={styles.infoLine}>📍 Dirección: {room.raw.direccion}</Text>
                 )}
@@ -339,8 +337,8 @@ export default function RoomDetailScreen() {
                 </View>
             </SectionCard>
 
-            {/* Pizarrón Táctico */}
-            <SectionCard title="Pizarrón Táctico">
+            {/* PizarrÃ³n TÃ¡ctico */}
+            <SectionCard title="PizarrÃ³n TÃ¡ctico">
                 <TacticalBoard
                     players={confirmedList}
                     maxPlayers={room.maxPlayers}
@@ -452,7 +450,7 @@ export default function RoomDetailScreen() {
                 </SectionCard>
             )}
 
-            {/* Acciones de Participación / Administración */}
+            {/* Acciones de ParticipaciÃ³n / AdministraciÃ³n */}
             <View style={styles.actionsBox}>
                 {!isParticipant && room.status === 'ABIERTA' && (
                     <Button
@@ -460,29 +458,13 @@ export default function RoomDetailScreen() {
                         onPress={handleJoin}
                         loading={actionLoading}
                     />
-                     {isOrganizer && isOpenForFinalize && (
-                    <>
-                        <Button
-                            title="Finalizar Partido"
-                            disabled={!canFinalizeNow}
-                            loading={actionLoading}
-                            onPress={handleFinalizeRoom}
-                            style={{ marginBottom: THEME.spacing.sm }}
-                        />
-                        {!canFinalizeNow && !!finalizeAvailableLabel && (
-                            <Text style={[styles.muted, { marginBottom: THEME.spacing.sm }]}>
-                                Se habilita el {finalizeAvailableLabel} hs (30 minutos después del inicio).
-                            </Text>
-                        )}
-                    </>
-                )}
                 )}
 
                 {isParticipant && !isOrganizer && !isClosedRoom && (
                     <Button
                         title={lockedByTime ? 'Bloqueado (< 24hs)' : 'Salir del Partido'}
                         variant="danger"
-                        disabled={lockedByTime}
+                        disabled={Boolean(lockedByTime)}
                         loading={actionLoading}
                         onPress={handleLeave}
                     />
@@ -491,14 +473,14 @@ export default function RoomDetailScreen() {
                     <>
                         <Button
                             title="Finalizar Partido"
-                            disabled={!canFinalizeNow}
+                            disabled={Boolean(!canFinalizeNow)}
                             loading={actionLoading}
                             onPress={handleFinalizeRoom}
                             style={{ marginBottom: THEME.spacing.sm }}
                         />
                         {!canFinalizeNow && !!finalizeAvailableLabel && (
                             <Text style={[styles.muted, { marginBottom: THEME.spacing.sm }]}>
-                                Se habilita el {finalizeAvailableLabel} hs (30 minutos después del inicio).
+                                Se habilita el {finalizeAvailableLabel} hs (30 minutos despuÃ©s del inicio).
                             </Text>
                         )}
                     </>
@@ -515,20 +497,20 @@ export default function RoomDetailScreen() {
                             <Button
                                 title="Cancelar Partido"
                                 variant="danger"
-                                disabled={lockedByTime}
+                                disabled={Boolean(lockedByTime)}
                                 onPress={() => setShowCancelBox(true)}
                             />
                         ) : (
                             <SectionCard title="Cancelar Sala">
                                 <Textarea
-                                    label="Motivo de cancelación (mínimo 10 caracteres)"
+                                    label="Motivo de cancelaciÃ³n (mÃ­nimo 10 caracteres)"
                                     value={cancelReason}
                                     onChangeText={setCancelReason}
                                     maxLength={CANCEL_ROOM_RULES.MAX_REASON_LENGTH}
                                     currentLength={cancelReason.length}
                                 />
                                 <Button
-                                    title="Confirmar Cancelación"
+                                    title="Confirmar CancelaciÃ³n"
                                     variant="danger"
                                     loading={actionLoading}
                                     onPress={handleCancelRoom}

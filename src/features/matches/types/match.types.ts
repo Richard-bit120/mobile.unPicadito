@@ -2,8 +2,8 @@ export interface RawSalaSearchItem {
     id: string;
     nombre: string;
     descripcion?: string;
-    nombreCancha: string;
-    direccion: string;
+    nombreCancha?: string;
+    direccion?: string;
     fechaHoraPartido: string;
     cuposTotales: number;
     cuposOcupados?: number;
@@ -18,19 +18,34 @@ export interface RawSalaSearchItem {
         apellido?: string;
         nombreUsuario?: string;
     };
-    ubicacion?: { x: number; y: number };
+    cancha?: {
+        id: number;
+        nombre: string;
+        tipo: string;
+        predio?: {
+            id: number;
+            nombre: string;
+            direccion: string;
+            localidad: string;
+            ubicacion?: string | { x: number; y: number };
+        };
+    };
+    ubicacion?: { x: number; y: number } | string;
+    distanciaKm?: number;
 }
 
 export interface CreateSalaPayload {
+    canchaId: number;
     nombre: string;
     descripcion?: string;
-    nombreCancha: string;
-    direccion: string;
+    nombreCancha?: string;
+    direccion?: string;
     fechaHoraPartido: string;
-    cuposTotales: number;
-    permiteSuplentes: boolean;
-    esPublica: boolean;
-    ubicacion: { x: number; y: number };
+    cuposTotales?: number;
+    permiteSuplentes?: boolean;
+    cuposSuplentesMax?: number;
+    esPublica?: boolean;
+    ubicacion?: { x: number; y: number };
 }
 
 export interface MatchFilters {
@@ -41,6 +56,9 @@ export interface MatchFilters {
     nombreCancha?: string;
     esPublica?: string | boolean;
     permiteSuplentes?: string | boolean;
+    lat?: number;
+    lng?: number;
+    radioKm?: number;
 }
 
 export interface MappedParticipant {
@@ -65,6 +83,8 @@ export interface MappedRoom {
     date: string;
     time: string;
     location: string;
+    pitchName?: string;
+    venueName?: string;
     maxPlayers: number;
     creatorId: number | null;
     organizerId: number | null;

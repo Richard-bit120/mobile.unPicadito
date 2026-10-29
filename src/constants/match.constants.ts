@@ -30,10 +30,11 @@ export const CANCEL_ROOM_RULES = {
 
 export const FINALIZE_ROOM_RULES = {
     MINUTES_AFTER_START: 30,
-} as const
+} as const;
 
 export const INITIAL_ROOM_FORM_VALUES = {
     nombre: '',
+    canchaId: 0,
     nombreCancha: '',
     direccion: '',
     fecha: '',

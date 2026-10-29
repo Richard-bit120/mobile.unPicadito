@@ -3,6 +3,7 @@ import { DateTimeField } from '@/components/ui/DateTimeField';
 import { Input } from '@/components/ui/Input';
 import { SelectModal } from '@/components/ui/SelectModal';
 import { THEME } from '@/config/theme';
+import { OTRAS_LOCALIDADES, RADIO_DISTANCIA_OPCIONES } from '@/constants/location.constants';
 import { X } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -36,6 +37,14 @@ const SUBSTITUTES_OPTIONS = [
     { value: 'false', label: 'Sin suplentes' },
 ];
 
+const LOCALIDAD_OPTIONS = [
+    { value: '', label: 'Todas las localidades' },
+    ...OTRAS_LOCALIDADES.map((loc) => ({
+        value: loc.id,
+        label: `${loc.nombre} (${loc.provincia})`,
+    })),
+];
+
 export const MatchFilterModal: React.FC<MatchFilterModalProps> = ({
     visible,
     filters,
@@ -43,6 +52,25 @@ export const MatchFilterModal: React.FC<MatchFilterModalProps> = ({
     onReset,
     onClose,
 }) => {
+    const selectedLocalidadId = OTRAS_LOCALIDADES.find(
+        (l) => filters.lat !== undefined && filters.lng !== undefined &&
+            Math.abs(l.lat - filters.lat) < 0.01 &&
+            Math.abs(l.lng - filters.lng) < 0.01
+    )?.id || '';
+
+    const handleLocalidadChange = (locId: string) => {
+        if (!locId) {
+            onFilterChange('lat', undefined);
+            onFilterChange('lng', undefined);
+            return;
+        }
+        const found = OTRAS_LOCALIDADES.find((l) => l.id === locId);
+        if (found) {
+            onFilterChange('lat', found.lat);
+            onFilterChange('lng', found.lng);
+        }
+    };
+
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.backdrop}>
@@ -59,6 +87,22 @@ export const MatchFilterModal: React.FC<MatchFilterModalProps> = ({
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
+                        <SelectModal
+                            label="Ubicación / Ciudad"
+                            value={selectedLocalidadId}
+                            options={LOCALIDAD_OPTIONS}
+                            onChange={handleLocalidadChange}
+                        />
+
+                        {filters.lat !== undefined && (
+                            <SelectModal
+                                label="Radio de distancia"
+                                value={String(filters.radioKm ?? '10')}
+                                options={RADIO_DISTANCIA_OPCIONES}
+                                onChange={(v) => onFilterChange('radioKm', Number(v))}
+                            />
+                        )}
+
                         <Input
                             label="Lugar / Cancha"
                             placeholder="Ej. La Bombonerita"

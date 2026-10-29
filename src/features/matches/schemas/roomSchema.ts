@@ -6,16 +6,18 @@ export const roomSchema = yup.object().shape({
         .required('El nombre del partido es obligatorio')
         .min(3, 'Mínimo 3 caracteres')
         .max(50, 'Máximo 50 caracteres'),
+    canchaId: yup
+        .number()
+        .typeError('Debe ser un número válido')
+        .optional(),
     nombreCancha: yup
         .string()
-        .required('El nombre del complejo/cancha es obligatorio')
-        .min(3, 'Mínimo 3 caracteres')
-        .max(50, 'Máximo 50 caracteres'),
+        .max(50, 'Máximo 50 caracteres')
+        .optional(),
     direccion: yup
         .string()
-        .required('La dirección es obligatoria')
-        .min(5, 'Mínimo 5 caracteres')
-        .max(100, 'Máximo 100 caracteres'),
+        .max(100, 'Máximo 100 caracteres')
+        .optional(),
     fecha: yup.string().required('La fecha es obligatoria'),
     hora: yup.string().required('La hora es obligatoria'),
     cuposTotales: yup
@@ -31,18 +33,34 @@ export const roomSchema = yup.object().shape({
         .optional(),
 });
 
-export const createRoomSchema = roomSchema.test(
-    'fecha-futura',
-    'La fecha y hora del partido deben ser futuras',
+export const createRoomSchema = roomSchema.shape({
+    canchaId: yup
+        .number()
+        .typeError('Debe seleccionar una cancha')
+        .required('Debe seleccionar una cancha')
+        .positive('Debe seleccionar una cancha válida'),
+}).test(
+    'fecha-futura-hora-en-punto',
+    'La fecha debe ser futura y la hora en punto',
     function ({ fecha, hora }) {
         if (!fecha || !hora) return true;
-        const isFuture = new Date(`${fecha}T${hora}:00`) > new Date();
-        return (
-            isFuture ||
-            this.createError({
+        const targetDate = new Date(`${fecha}T${hora}:00`);
+        if (isNaN(targetDate.getTime())) return true;
+
+        if (targetDate <= new Date()) {
+            return this.createError({
                 path: 'fecha',
                 message: 'La fecha y hora del partido deben ser futuras',
-            })
-        );
+            });
+        }
+
+        if (targetDate.getMinutes() !== 0) {
+            return this.createError({
+                path: 'hora',
+                message: 'La hora debe ser en punto (ej: 18:00, 19:00)',
+            });
+        }
+
+        return true;
     }
 );

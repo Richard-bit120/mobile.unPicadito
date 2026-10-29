@@ -38,6 +38,7 @@ export default function EditRoomScreen() {
                 setRoom(data);
                 setFormData({
                     nombre: data.title,
+                    canchaId: data.raw?.cancha?.id || data.raw?.canchaId || 0,
                     nombreCancha: data.raw?.nombreCancha || data.location,
                     direccion: data.raw?.direccion || data.location,
                     fecha: data.date,
@@ -88,10 +89,10 @@ export default function EditRoomScreen() {
             }
 
             if (!isTimeLocked) {
-                if (valid.nombreCancha !== raw.nombreCancha) {
+                if (valid.nombreCancha && valid.nombreCancha !== raw.nombreCancha) {
                     patch.nombreCancha = valid.nombreCancha.trim();
                 }
-                if (valid.direccion !== raw.direccion) {
+                if (valid.direccion && valid.direccion !== raw.direccion) {
                     patch.direccion = valid.direccion.trim();
                 }
                 if (valid.fecha !== room.date || valid.hora !== room.time) {
