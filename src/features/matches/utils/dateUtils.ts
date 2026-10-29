@@ -1,3 +1,5 @@
+import { FINALIZE_ROOM_RULES } from '@/constants/match.constants';
+
 export const getLocalPart = (isoString?: string) => {
     if (!isoString) return { date: '', time: '' };
     const date = new Date(isoString);
@@ -26,4 +28,11 @@ export const isWithin24Hours = (isoString?: string): boolean => {
     const now = new Date();
     const diffHours = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     return diffHours > 0 && diffHours <= 24;
+};
+
+export const getFinalizeAvailableAt = (isoString?: string): Date | null => {
+    if (!isoString) return null;
+    const matchDate = new Date(isoString);
+    if (isNaN(matchDate.getTime())) return null;
+    return new Date(matchDate.getTime() + FINALIZE_ROOM_RULES.MINUTES_AFTER_START * 60 * 1000);
 };

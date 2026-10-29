@@ -60,6 +60,12 @@ export const matchService = {
         return response.data;
     },
 
+
+    finalizeRoom: async (id: string) => {
+        const response = await axiosInstance.patch(`/salas/${id}/finalizar`);
+        return response.data;
+    },
+
     expelPlayer: async (matchId: string, userId: number | string) => {
         const response = await axiosInstance.delete(`/salas/${matchId}/expulsar/${userId}`);
         return response.data;
