@@ -22,6 +22,15 @@ export const PARTICIPANT_STATUS = {
     EXPULSADO: 'EXPULSADO',
 } as const;
 
+export type RoomBadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+export const ROOM_STATUS_BADGE: Record<string, { label: string; variant: RoomBadgeVariant }> = {
+    [ROOM_STATUS.ABIERTA]: { label: 'Abierta', variant: 'success' },
+    [ROOM_STATUS.COMPLETA]: { label: 'Completa', variant: 'warning' },
+    [ROOM_STATUS.FINALIZADA]: { label: 'Finalizada', variant: 'neutral' },
+    [ROOM_STATUS.CANCELADA]: { label: 'Cancelada', variant: 'danger' },
+};
+
 export const CANCEL_ROOM_RULES = {
     MIN_REASON_LENGTH: 10,
     MAX_REASON_LENGTH: 500,
@@ -30,7 +39,13 @@ export const CANCEL_ROOM_RULES = {
 
 export const FINALIZE_ROOM_RULES = {
     MINUTES_AFTER_START: 30,
-} as const
+} as const;
+
+export const REVIEW_RULES = {
+    MIN_STARS: 1,
+    MAX_STARS: 5,
+    MAX_COMMENT_LENGTH: 500,
+} as const;
 
 export const INITIAL_ROOM_FORM_VALUES = {
     nombre: '',

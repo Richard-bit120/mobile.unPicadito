@@ -7,23 +7,19 @@ import { LocationPickerMap } from '@/components/ui/LocationPickerMap';
 import { SectionCard } from '@/components/ui/SectionCard';
 import { Textarea } from '@/components/ui/Textarea';
 import { THEME } from '@/config/theme';
-import { CANCEL_ROOM_RULES } from '@/constants/match.constants';
+import { CANCEL_ROOM_RULES, ROOM_STATUS, ROOM_STATUS_BADGE } from '@/constants/match.constants';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { PostMatchRating } from '@/features/matches/components/PostMatchRating';
 import { TacticalBoard } from '@/features/matches/components/TacticalBoard';
 import { matchService } from '@/features/matches/services/matchService';
 import { MappedParticipant, MappedRoom } from '@/features/matches/types/match.types';
 import { getFinalizeAvailableAt, isWithin24Hours } from '@/features/matches/utils/dateUtils';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, Crown, UserMinus } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const STATUS_BADGE: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' }> = {
-    ABIERTA: { label: 'Disponible', variant: 'success' },
-    COMPLETA: { label: 'Completa', variant: 'warning' },
-    FINALIZADA: { label: 'Finalizada', variant: 'neutral' },
-    CANCELADA: { label: 'Cancelada', variant: 'danger' },
-};
+const OPEN_ROOM_STATUSES: string[] = [ROOM_STATUS.ABIERTA, ROOM_STATUS.COMPLETA];
 
 export default function RoomDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,14 +33,22 @@ export default function RoomDetailScreen() {
     const [showCancelBox, setShowCancelBox] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [now, setNow] = useState(Date.now());
-    const isFirstFocus = useRef(true);
+
+    const loadRoom = useCallback(async () => {
+        if (!id) return;
+        setError(null);
+        try {
+            const data = await matchService.getRoomById(id);
+            setRoom(data);
+        } catch (err: any) {
+            setError(err.message || 'No se pudo cargar la sala.');
+        } finally {
+            setLoading(false);
+        }
+    }, [id]);
 
     useFocusEffect(
         useCallback(() => {
-            if (isFirstFocus.current) {
-                isFirstFocus.current = false;
-                return;
-            }
             loadRoom();
         }, [loadRoom])
     );
@@ -59,7 +63,7 @@ export default function RoomDetailScreen() {
     const roomStatus = room?.status;
     const matchIso = room?.raw?.fechaHoraPartido;
     useEffect(() => {
-        if (!matchIso || !['ABIERTA', 'COMPLETA'].includes(roomStatus ?? '')) return;
+        if (!matchIso || !OPEN_ROOM_STATUSES.includes(roomStatus ?? '')) return;
         const availableAt = getFinalizeAvailableAt(matchIso);
         if (!availableAt || !id) return;
 
@@ -79,7 +83,7 @@ export default function RoomDetailScreen() {
                 const fresh = await matchService.getRoomById(id);
                 if (cancelled) return;
                 setRoom(fresh);
-                const stillOpen = ['ABIERTA', 'COMPLETA'].includes(fresh?.status ?? '');
+                const stillOpen = OPEN_ROOM_STATUSES.includes(fresh?.status ?? '');
                 if (stillOpen && attempts < MAX_ATTEMPTS) {
                     attempts += 1;
                     timeoutId = setTimeout(refresh, RETRY_MS);
@@ -95,24 +99,6 @@ export default function RoomDetailScreen() {
         };
     }, [id, matchIso, roomStatus]);
 
-
-    const loadRoom = useCallback(async () => {
-        if (!id) return;
-        setError(null);
-        try {
-            const data = await matchService.getRoomById(id);
-            setRoom(data);
-        } catch (err: any) {
-            setError(err.message || 'No se pudo cargar la sala.');
-        } finally {
-            setLoading(false);
-        }
-    }, [id]);
-
-    useEffect(() => {
-        loadRoom();
-    }, [loadRoom]);
-
     if (loading) return <LoadingSpinner label="Cargando detalle del partido..." />;
     if (!room) {
         return (
@@ -127,9 +113,7 @@ export default function RoomDetailScreen() {
     const isParticipant = room.participants.some(
         (p) => p.userId === user?.id && (p.status === 'CONFIRMED' || p.status === 'SUBSTITUTE')
     );
-    const matchIso = room?.raw?.fechaHoraPartido;
-    const finalizedAt = matchIso && !['ABIERTA', 'COMPLETA'].includes(roomStatus ?? '') ? new Date(matchIso).getTime() + 30 * 60 * 1000 : null;
-    const lockedByTime = finalizedAt && finalizedAt > Date.now();
+    const lockedByTime = isWithin24Hours(room.raw?.fechaHoraPartido);
 
     const confirmedList = room.participants.filter((p) => p.status === 'CONFIRMED');
     const substituteList = room.participants.filter((p) => p.status === 'SUBSTITUTE');
@@ -137,8 +121,9 @@ export default function RoomDetailScreen() {
     const availableSlots = Math.max(0, room.maxPlayers - confirmedList.length);
     const progressPct = room.maxPlayers > 0 ? Math.min(100, Math.round((confirmedList.length / room.maxPlayers) * 100)) : 0;
     const finalizeAvailableAt = getFinalizeAvailableAt(room.raw?.fechaHoraPartido);
-    const isOpenForFinalize = room.status === 'ABIERTA' || room.status === 'COMPLETA';
-    const isClosedRoom = room.status === 'CANCELADA' || room.status === 'FINALIZADA';
+    const isOpenForFinalize = room.status === ROOM_STATUS.ABIERTA || room.status === ROOM_STATUS.COMPLETA;
+    const isClosedRoom = room.status === ROOM_STATUS.CANCELADA || room.status === ROOM_STATUS.FINALIZADA;
+    const statusBadge = ROOM_STATUS_BADGE[room.status] ?? { label: room.status, variant: 'neutral' as const };
     const canFinalizeNow =
         finalizeAvailableAt !== null && now >= finalizeAvailableAt.getTime();
     const finalizeAvailableLabel = finalizeAvailableAt
@@ -285,18 +270,12 @@ export default function RoomDetailScreen() {
 
             {/* Información y Mapa de la cancha */}
             <SectionCard
-                action={
-                    <Badge
-                        label={STATUS_BADGE[room.status]?.label ?? room.status}
-                        variant={STATUS_BADGE[room.status]?.variant ?? 'neutral'}
-                    />
-                }
                 title={room.title}
                 subtitle={`${room.date} a las ${room.time} hs`}
                 action={
                     <Badge
-                        label={room.status}
-                        variant={room.status === 'ABIERTA' ? 'success' : 'warning'}
+                        label={statusBadge.label}
+                        variant={statusBadge.variant}
                     />
                 }
             >
@@ -452,30 +431,19 @@ export default function RoomDetailScreen() {
                 </SectionCard>
             )}
 
+            {/* Calificaciones Post-Partido */}
+            {room.status === ROOM_STATUS.FINALIZADA && isParticipant && (
+                <PostMatchRating roomId={room.id} />
+            )}
+
             {/* Acciones de Participación / Administración */}
             <View style={styles.actionsBox}>
-                {!isParticipant && room.status === 'ABIERTA' && (
+                {!isParticipant && room.status === ROOM_STATUS.ABIERTA && (
                     <Button
                         title="Unirme al Partido"
                         onPress={handleJoin}
                         loading={actionLoading}
                     />
-                     {isOrganizer && isOpenForFinalize && (
-                    <>
-                        <Button
-                            title="Finalizar Partido"
-                            disabled={!canFinalizeNow}
-                            loading={actionLoading}
-                            onPress={handleFinalizeRoom}
-                            style={{ marginBottom: THEME.spacing.sm }}
-                        />
-                        {!canFinalizeNow && !!finalizeAvailableLabel && (
-                            <Text style={[styles.muted, { marginBottom: THEME.spacing.sm }]}>
-                                Se habilita el {finalizeAvailableLabel} hs (30 minutos después del inicio).
-                            </Text>
-                        )}
-                    </>
-                )}
                 )}
 
                 {isParticipant && !isOrganizer && !isClosedRoom && (
@@ -503,7 +471,7 @@ export default function RoomDetailScreen() {
                         )}
                     </>
                 )}
-                {isOrganizer && room.status === 'ABIERTA' && (
+                {isOrganizer && room.status === ROOM_STATUS.ABIERTA && (
                     <>
                         <Button
                             title="Editar Sala"

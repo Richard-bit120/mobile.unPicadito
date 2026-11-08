@@ -1,4 +1,6 @@
+import { Badge } from '@/components/ui/Badge';
 import { THEME } from '@/config/theme';
+import { ROOM_STATUS, ROOM_STATUS_BADGE } from '@/constants/match.constants';
 import { Calendar, Lock, MapPin, Users } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -21,7 +23,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({ room, onPress }) => {
 
     const ocupados = Number(room.cuposOcupados ?? 1);
     const totales = Number(room.cuposTotales ?? 10);
-    const isFull = ocupados >= totales;
+    const isCancelled = room.estado === ROOM_STATUS.CANCELADA;
+    const isFinished = room.estado === ROOM_STATUS.FINALIZADA;
+    const isFull =
+        !isCancelled &&
+        !isFinished &&
+        (room.estado === ROOM_STATUS.COMPLETA || ocupados >= totales);
+
+    const statusKey = isCancelled
+        ? ROOM_STATUS.CANCELADA
+        : isFinished
+          ? ROOM_STATUS.FINALIZADA
+          : isFull
+            ? ROOM_STATUS.COMPLETA
+            : ROOM_STATUS.ABIERTA;
+    const badge = ROOM_STATUS_BADGE[statusKey];
 
     return (
         <Pressable
@@ -32,9 +48,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ room, onPress }) => {
                 <Text style={styles.title} numberOfLines={1}>
                     {room.nombre}
                 </Text>
-                <View style={[styles.badge, isFull ? styles.badgeFull : styles.badgeOpen]}>
-                    <Text style={styles.badgeText}>{isFull ? 'Completa' : 'Abierta'}</Text>
-                </View>
+                <Badge label={badge.label} variant={badge.variant} />
             </View>
 
             <View style={styles.row}>
@@ -91,22 +105,6 @@ const styles = StyleSheet.create({
         color: THEME.colors.text,
         flex: 1,
         marginRight: THEME.spacing.sm,
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: THEME.borderRadius.sm,
-    },
-    badgeOpen: {
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    },
-    badgeFull: {
-        backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: THEME.colors.primaryLight,
     },
     row: {
         flexDirection: 'row',

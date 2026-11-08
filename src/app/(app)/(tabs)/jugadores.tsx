@@ -1,15 +1,17 @@
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { THEME } from '@/config/theme';
 import { validatePlayerSearch } from '@/features/players/schemas/searchPlayerSchema';
 import { PlayerItem, playerService } from '@/features/players/services/playerService';
 import { useDebounce } from '@/hooks/useDebounce';
+import { formatPlayerFullName } from '@/utils/userFormatters';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     FlatList,
     RefreshControl,
@@ -95,37 +97,31 @@ export default function JugadoresScreen() {
                             colors={[THEME.colors.primary]}
                         />
                     }
-                    renderItem={({ item }) => {
-                        const apellido =
-                            item.apellido?.toLowerCase() === 'sin apellido'
-                                ? ''
-                                : item.apellido || '';
-                        return (
-                            <TouchableOpacity
-                                style={styles.card}
-                                onPress={() => router.push(`/usuarios/${item.id}`)}
-                            >
-                                <View style={styles.avatarCircle}>
-                                    <Text style={styles.avatarLetter}>
-                                        {(item.nombre?.[0] || 'J').toUpperCase()}
-                                    </Text>
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.card}
+                            onPress={() => router.push(`/usuarios/${item.id}`)}
+                        >
+                            <Avatar
+                                uri={item.fotoPerfilUrl}
+                                name={item.nombre}
+                                size={46}
+                                borderWidth={1}
+                                fallbackInitial="J"
+                            />
+                            <View style={styles.cardBody}>
+                                <Text style={styles.name}>{formatPlayerFullName(item)}</Text>
+                                <Text style={styles.username}>@{item.nombreUsuario}</Text>
+                                <View style={styles.badgeWrap}>
+                                    <Badge
+                                        label={item.posicionPrincipal || 'POLIFUNCIONAL'}
+                                        variant="info"
+                                    />
                                 </View>
-                                <View style={styles.cardBody}>
-                                    <Text style={styles.name}>
-                                        {item.nombre} {apellido}
-                                    </Text>
-                                    <Text style={styles.username}>@{item.nombreUsuario}</Text>
-                                    <View style={styles.badgeWrap}>
-                                        <Badge
-                                            label={item.posicionPrincipal || 'POLIFUNCIONAL'}
-                                            variant="info"
-                                        />
-                                    </View>
-                                </View>
-                                <ChevronRight size={20} color={THEME.colors.textSecondary} />
-                            </TouchableOpacity>
-                        );
-                    }}
+                            </View>
+                            <ChevronRight size={20} color={THEME.colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
                     ListEmptyComponent={
                         <EmptyState
                             title={
@@ -168,21 +164,6 @@ const styles = StyleSheet.create({
         borderColor: THEME.colors.surfaceBorder,
         padding: THEME.spacing.md,
         marginBottom: THEME.spacing.sm,
-    },
-    avatarCircle: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: THEME.colors.surfaceLight,
-        borderWidth: 1,
-        borderColor: THEME.colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarLetter: {
-        color: THEME.colors.primary,
-        fontSize: 18,
-        fontWeight: '700',
     },
     cardBody: {
         flex: 1,

@@ -2,23 +2,14 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
 import { THEME } from '@/config/theme';
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { MatchCard } from '@/features/matches/components/MatchCard';
-import { useMatches } from '@/features/matches/hooks/useMatches';
+import { useMyMatches } from '@/features/matches/hooks/useMyMatches';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 export default function MisPartidosScreen() {
     const router = useRouter();
-    const user = useAuthStore((s) => s.user);
-    const { matches, loading, refreshing, error, refresh } = useMatches();
-
-    const myMatches = useMemo(() => {
-        return matches.filter(
-            (m) => Boolean(Number(m.unidoPorUsuarioActual)) || m.creador?.id === user?.id
-        );
-    }, [matches, user?.id]);
+    const { matches, loading, refreshing, error, refresh } = useMyMatches();
 
     if (loading && !refreshing) {
         return <LoadingSpinner label="Cargando tus partidos..." />;
@@ -27,7 +18,7 @@ export default function MisPartidosScreen() {
     return (
         <View style={styles.container}>
             <FlatList
-                data={myMatches}
+                data={matches}
                 keyExtractor={(item) => String(item.id)}
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={<ErrorMessage message={error} />}
@@ -44,8 +35,8 @@ export default function MisPartidosScreen() {
                 }
                 ListEmptyComponent={
                     <EmptyState
-                        title="Aún no participas en ningún partido"
-                        description="Explora las salas abiertas o crea un nuevo picadito."
+                        title="Aún no participás en ningún partido"
+                        description="Explorá las salas abiertas o creá un nuevo picadito."
                         actionLabel="Explorar Partidos"
                         onActionPress={() => router.push('/(app)/(tabs)')}
                     />

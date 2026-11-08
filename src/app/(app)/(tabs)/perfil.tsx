@@ -1,17 +1,20 @@
 import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/ui/SectionCard';
 import { THEME } from '@/config/theme';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useFriends } from '@/features/friends/hooks/useFriends';
+import { ProfileReviewsSection } from '@/features/profile/components/ProfileReviewsSection';
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { UserReviewItem } from '@/features/profile/types/profile.types';
+import { formatPlayerFullName, formatReputationLabel } from '@/utils/userFormatters';
 import { useRouter } from 'expo-router';
 import { Check, Pencil, Star, X } from 'lucide-react-native';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function PerfilScreen() {
     const router = useRouter();
@@ -23,14 +26,9 @@ export default function PerfilScreen() {
     if (loading) return <LoadingSpinner label="Cargando perfil..." />;
 
     const displayUser = profile || authUser;
-    const apellido =
-        displayUser?.apellido?.toLowerCase() === 'sin apellido'
-            ? ''
-            : displayUser?.apellido || '';
-    const fullName = `${displayUser?.nombre || ''} ${apellido}`.trim() || 'Mi Perfil';
-    const initials = (displayUser?.nombre?.[0] || 'U').toUpperCase();
-
-    const reviews: any[] = displayUser?.resenasRecibidas || [];
+    const fullName = formatPlayerFullName(displayUser, 'Mi Perfil');
+    const reviews: UserReviewItem[] = displayUser?.resenasRecibidas || [];
+    const reputationLabel = formatReputationLabel(displayUser?.reputacion, reviews.length);
     const pendingFriends: any[] = (displayUser?.solicitudesAmistadRecibidas || []).filter(
         (r: any) => r.estado === 'PENDIENTE' || r.status === 'PENDING'
     );
@@ -47,16 +45,13 @@ export default function PerfilScreen() {
             {/* Cabecera del Perfil */}
             <SectionCard>
                 <View style={styles.headerRow}>
-                    {displayUser?.fotoPerfilUrl ? (
-                        <Image
-                            source={{ uri: displayUser.fotoPerfilUrl }}
-                            style={styles.avatar}
-                        />
-                    ) : (
-                        <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarInitials}>{initials}</Text>
-                        </View>
-                    )}
+                    <Avatar
+                        uri={displayUser?.fotoPerfilUrl}
+                        name={displayUser?.nombre}
+                        size={68}
+                        borderWidth={2}
+                        fallbackInitial="U"
+                    />
 
                     <View style={styles.headerInfo}>
                         <Text style={styles.name}>{fullName}</Text>
@@ -90,9 +85,7 @@ export default function PerfilScreen() {
                     <Text style={styles.label}>Reputación promedio:</Text>
                     <View style={styles.ratingBox}>
                         <Star size={16} color={THEME.colors.warning} fill={THEME.colors.warning} />
-                        <Text style={styles.value}>
-                            {displayUser?.reputacion ?? 'Sin calificaciones'}
-                        </Text>
+                        <Text style={styles.value}>{reputationLabel}</Text>
                     </View>
                 </View>
 
@@ -138,32 +131,11 @@ export default function PerfilScreen() {
             )}
 
             {/* Reseñas Recibidas */}
-            <SectionCard title={`Reseñas Recibidas (${reviews.length})`}>
-                {reviews.length === 0 ? (
-                    <Text style={styles.muted}>Aún no has recibido reseñas.</Text>
-                ) : (
-                    reviews.map((rev: any) => (
-                        <View key={rev.id} style={styles.reviewItem}>
-                            <View style={styles.reviewHeader}>
-                                <Text style={styles.reviewerName}>
-                                    {rev.calificador?.nombre || 'Jugador'}
-                                </Text>
-                                <View style={styles.ratingBox}>
-                                    <Star
-                                        size={14}
-                                        color={THEME.colors.warning}
-                                        fill={THEME.colors.warning}
-                                    />
-                                    <Text style={styles.reviewStars}>{rev.estrellas}/5</Text>
-                                </View>
-                            </View>
-                            {!!rev.comentario && (
-                                <Text style={styles.reviewComment}>{rev.comentario}</Text>
-                            )}
-                        </View>
-                    ))
-                )}
-            </SectionCard>
+            <ProfileReviewsSection
+                reviews={reviews}
+                titlePrefix="Reseñas Recibidas"
+                emptyMessage="Aún no has recibido reseñas."
+            />
 
             <Button
                 title="Cerrar Sesión"
@@ -180,28 +152,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: THEME.spacing.md,
-    },
-    avatar: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        borderWidth: 2,
-        borderColor: THEME.colors.primary,
-    },
-    avatarPlaceholder: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        backgroundColor: THEME.colors.surfaceLight,
-        borderWidth: 2,
-        borderColor: THEME.colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarInitials: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: THEME.colors.primary,
     },
     headerInfo: {
         flex: 1,
@@ -262,22 +212,4 @@ const styles = StyleSheet.create({
     },
     acceptBg: { backgroundColor: THEME.colors.primary },
     rejectBg: { backgroundColor: THEME.colors.danger },
-    reviewItem: {
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: THEME.colors.surfaceBorder,
-    },
-    reviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    reviewerName: { color: THEME.colors.text, fontSize: 14, fontWeight: '600' },
-    reviewStars: { color: THEME.colors.warning, fontSize: 13, fontWeight: '700' },
-    reviewComment: {
-        color: THEME.colors.textSecondary,
-        fontSize: 13,
-        marginTop: 4,
-    },
-    muted: { color: THEME.colors.textMuted, fontSize: 14 },
 });
