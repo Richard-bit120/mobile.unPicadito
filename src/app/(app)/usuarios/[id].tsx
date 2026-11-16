@@ -1,17 +1,20 @@
 import { ErrorMessage } from '@/components/feedback/ErrorMessage';
 import { LoadingSpinner } from '@/components/feedback/LoadingSpinner';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SectionCard } from '@/components/ui/SectionCard';
 import { THEME } from '@/config/theme';
 import { useAuthStore } from '@/features/auth/store/useAuthStore';
 import { useFriends } from '@/features/friends/hooks/useFriends';
+import { ProfileReviewsSection } from '@/features/profile/components/ProfileReviewsSection';
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { UserReviewItem } from '@/features/profile/types/profile.types';
+import { formatPlayerFullName, formatReputationLabel } from '@/utils/userFormatters';
 import { useLocalSearchParams } from 'expo-router';
 import { Star } from 'lucide-react-native';
-import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function PublicUserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,11 +37,9 @@ export default function PublicUserProfileScreen() {
     }
 
     const isOwnProfile = Number(id) === currentUser?.id;
-    const apellido =
-        profile.apellido?.toLowerCase() === 'sin apellido' ? '' : profile.apellido || '';
-    const fullName = `${profile.nombre || ''} ${apellido}`.trim();
-    const initials = (profile.nombre?.[0] || 'J').toUpperCase();
-    const reviews: any[] = profile.resenasRecibidas || [];
+    const fullName = formatPlayerFullName(profile, 'Jugador');
+    const reviews: UserReviewItem[] = profile.resenasRecibidas || [];
+    const reputationLabel = formatReputationLabel(profile.reputacion, reviews.length);
 
     return (
         <ScreenContainer>
@@ -46,16 +47,13 @@ export default function PublicUserProfileScreen() {
 
             <SectionCard>
                 <View style={styles.headerRow}>
-                    {profile.fotoPerfilUrl ? (
-                        <Image
-                            source={{ uri: profile.fotoPerfilUrl }}
-                            style={styles.avatar}
-                        />
-                    ) : (
-                        <View style={styles.avatarPlaceholder}>
-                            <Text style={styles.avatarInitials}>{initials}</Text>
-                        </View>
-                    )}
+                    <Avatar
+                        uri={profile.fotoPerfilUrl}
+                        name={profile.nombre}
+                        size={68}
+                        borderWidth={2}
+                        fallbackInitial="J"
+                    />
 
                     <View style={styles.headerInfo}>
                         <Text style={styles.name}>{fullName}</Text>
@@ -80,9 +78,7 @@ export default function PublicUserProfileScreen() {
                             color={THEME.colors.warning}
                             fill={THEME.colors.warning}
                         />
-                        <Text style={styles.value}>
-                            {profile.reputacion ?? 'Sin calificaciones'}
-                        </Text>
+                        <Text style={styles.value}>{reputationLabel}</Text>
                     </View>
                 </View>
 
@@ -101,27 +97,11 @@ export default function PublicUserProfileScreen() {
                 )}
             </SectionCard>
 
-            <SectionCard title={`Reseñas (${reviews.length})`}>
-                {reviews.length === 0 ? (
-                    <Text style={styles.muted}>
-                        Este jugador aún no tiene reseñas registradas.
-                    </Text>
-                ) : (
-                    reviews.map((rev: any) => (
-                        <View key={rev.id} style={styles.reviewItem}>
-                            <View style={styles.reviewHeader}>
-                                <Text style={styles.reviewerName}>
-                                    {rev.calificador?.nombre || 'Jugador'}
-                                </Text>
-                                <Text style={styles.reviewStars}>⭐ {rev.estrellas}/5</Text>
-                            </View>
-                            {!!rev.comentario && (
-                                <Text style={styles.reviewComment}>{rev.comentario}</Text>
-                            )}
-                        </View>
-                    ))
-                )}
-            </SectionCard>
+            <ProfileReviewsSection
+                reviews={reviews}
+                titlePrefix="Reseñas"
+                emptyMessage="Este jugador aún no tiene reseñas registradas."
+            />
         </ScreenContainer>
     );
 }
@@ -131,28 +111,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: THEME.spacing.md,
-    },
-    avatar: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        borderWidth: 2,
-        borderColor: THEME.colors.primary,
-    },
-    avatarPlaceholder: {
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        backgroundColor: THEME.colors.surfaceLight,
-        borderWidth: 2,
-        borderColor: THEME.colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarInitials: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: THEME.colors.primary,
     },
     headerInfo: {
         flex: 1,
@@ -177,17 +135,4 @@ const styles = StyleSheet.create({
     label: { color: THEME.colors.textSecondary, fontSize: 14 },
     value: { color: THEME.colors.text, fontSize: 14, fontWeight: '600' },
     ratingBox: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    reviewItem: {
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: THEME.colors.surfaceBorder,
-    },
-    reviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    reviewerName: { color: THEME.colors.text, fontSize: 14, fontWeight: '600' },
-    reviewStars: { color: THEME.colors.warning, fontSize: 13, fontWeight: '700' },
-    reviewComment: { color: THEME.colors.textSecondary, fontSize: 13, marginTop: 4 },
-    muted: { color: THEME.colors.textMuted, fontSize: 14 },
 });

@@ -76,3 +76,34 @@ export interface MappedRoom {
     participants: MappedParticipant[];
     raw: any;
 }
+
+export interface PendienteCalificar {
+    userId: number;
+    nombre: string;
+    apellido: string;
+    nombreUsuario: string;
+    fotoPerfilUrl: string | null;
+    posicionPrincipal: string;
+    puedeCalificar: boolean;
+    diasRestantes: number;
+}
+
+export interface CreateResenaPayload {
+    salaId: string;
+    calificadoId: number;
+    estrellas: number;
+    comentario?: string;
+}
+
+export interface CreateReviewResponse {
+    review: {
+        id: string;
+        salaId: string;
+        calificadoId: number;
+        estrellas: number;
+        comentario: string | null;
+        creadoEn: string;
+    };
+    reputacionCalificado: number;
+    totalResenas: number;
+}

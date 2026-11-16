@@ -1,9 +1,17 @@
 import { axiosInstance } from '@/api/axiosInstance';
-import { CreateSalaPayload, MappedRoom, MatchFilters } from '../types/match.types';
+import {
+    CreateResenaPayload,
+    CreateReviewResponse,
+    CreateSalaPayload,
+    MappedRoom,
+    MatchFilters,
+    PendienteCalificar,
+    RawSalaSearchItem,
+} from '../types/match.types';
 import { mapRoomFromApi } from './matchMapper';
 
 export const matchService = {
-    getAvailableRooms: async (filters: MatchFilters = {}) => {
+    getAvailableRooms: async (filters: MatchFilters = {}): Promise<RawSalaSearchItem[]> => {
         const params: Record<string, any> = {};
         if (filters.date) {
             const time = filters.time || '00:00';
@@ -83,5 +91,22 @@ export const matchService = {
             `/salas/${matchId}/solicitudes/${participacionId}/aceptar`
         );
         return response.data;
+    },
+
+    getMyRooms: async (): Promise<RawSalaSearchItem[]> => {
+        const response = await axiosInstance.get('/salas/buscar', {
+            params: { misPartidos: true, limite: 50 },
+        });
+        return response.data?.data ?? [];
+    },
+
+    getPendientesCalificar: async (roomId: string): Promise<PendienteCalificar[]> => {
+        const response = await axiosInstance.get(`/salas/${roomId}/pendientes-calificar`);
+        return response.data?.data?.pendientes ?? [];
+    },
+
+    createReview: async (payload: CreateResenaPayload): Promise<CreateReviewResponse> => {
+        const response = await axiosInstance.post('/reviews', payload);
+        return response.data?.data;
     },
 };
