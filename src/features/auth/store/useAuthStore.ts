@@ -1,4 +1,5 @@
 import { secureStorageAdapter } from '@/platform/storageAdapter';
+import { unregisterDevicePushToken } from '@/features/notifications/services/pushTokenService';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -41,7 +42,10 @@ export const useAuthStore = create<AuthState>()(
             setAuth: (token, user, refreshToken = null) =>
                 set({ token, user, refreshToken, isAuthenticated: true }),
             setUser: (user) => set({ user }),
-            logout: () => set({ ...INITIAL_AUTH_STATE }),
+            logout: () => {
+                void unregisterDevicePushToken();
+                set({ ...INITIAL_AUTH_STATE });
+            },
             setHydrated: (hydrated) => set({ isHydrated: hydrated }),
         }),
         {
